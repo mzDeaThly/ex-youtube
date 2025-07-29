@@ -1,15 +1,16 @@
 import os
-import base64
 from news_fetcher import get_latest_news, summarize_text
 from video_creator import create_audio_from_text, download_pexels_video, create_final_video
 from youtube_uploader import upload_video
 
+CLIENT_SECRET_PATH = "/etc/secrets/client_secret.json"
+
 def prepare_client_secret():
-    secret = os.environ.get("CLIENT_SECRET_JSON")
-    if secret and not os.path.exists("client_secret.json"):
-        with open("client_secret.json", "w") as f:
-            f.write(base64.b64decode(secret).decode())
-        print("🔐 client_secret.json ถูกสร้างแล้ว")
+    # ตรวจสอบว่าไฟล์ client_secret.json อยู่ในที่ที่ mount ไว้หรือยัง
+    if not os.path.exists(CLIENT_SECRET_PATH):
+        raise FileNotFoundError(f"ไม่พบไฟล์ client_secret.json ที่ {CLIENT_SECRET_PATH}")
+    else:
+        print(f"🔐 ใช้ client_secret.json จาก {CLIENT_SECRET_PATH}")
 
 def process_single_video():
     print("🚀 เริ่มกระบวนการสร้างวิดีโอ...")
@@ -37,7 +38,8 @@ def process_single_video():
         file=final_video_file,
         title=title,
         description=summary,
-        tags=["ข่าว", "สรุปข่าว", "ข่าววันนี้"]
+        tags=["ข่าว", "สรุปข่าว", "ข่าววันนี้"],
+        client_secret_path=CLIENT_SECRET_PATH
     )
 
     for f in [audio_file, video_file, final_video_file]:
