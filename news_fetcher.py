@@ -1,52 +1,47 @@
 import os
-import openai
 import requests
 
-# สำหรับ OpenRouter หรือ API ที่ compatible กับ OpenAI
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-
-openai.api_key = OPENROUTER_API_KEY
-openai.api_base = "https://openrouter.ai/api/v1"  # เปลี่ยน endpoint ให้ตรงกับผู้ให้บริการ
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
+HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
 
 def get_latest_news():
-    """ดึงข่าวทั่วไปโดยใช้คำค้น (query)"""
-    NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-    queries = ["ข่าว", "ประเทศไทย", "เศรษฐกิจ", "การเมือง"]
+    """ดึงข่าวล่าสุดจาก NewsAPI หมวด general ประเทศไทย"""
+    url = f"https://newsapi.org/v2/top-headlines?country=th&category=general&apiKey={NEWS_API_KEY}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"❌ Error fetching news: {response.status_code}")
+        return None, None
 
-    for query in queries:
-        url = f"https://newsapi.org/v2/everything?q={query}&language=th&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
-        response = requests.get(url)
-        print(f"📡 Fetching query: {query} | Status: {response.status_code}")
+    data = response.json()
+    articles = data.get("articles", [])
+    if not articles:
+        return None, None
 
-        if response.status_code != 200:
-            continue
+    first = articles[0]
+    title = first.get("title")
+    content = first.get("content") or first.get("description") or ""
+    return title, content
 
-        articles = response.json().get("articles", [])
-        if not articles:
-            continue
-
-        first = articles[0]
-        title = first.get("title")
-        content = first.get("content") or first.get("description") or ""
-        print(f"✅ พบข่าว: {title}")
-        return title, content
-
-    print("❌ ไม่พบข่าวใหม่")
-    return None, None
-
-
-def summarize_text(content):
-    """สรุปข่าวโดยใช้ GPT-4 ผ่าน OpenRouter"""
-    try:
-        response = openai.ChatCompletion.create(
-            model="openai/gpt-4",  # หรือ gpt-3.5-turbo ได้เช่นกัน
-            messages=[
-                {"role": "system", "content": "คุณคือผู้สรุปข่าวภาษาไทย สำหรับคลิปวิดีโอ 60 วินาที"},
-                {"role": "user", "content": f"สรุปข่าวต่อไปนี้ให้น่าสนใจ เข้าใจง่าย และกระชับ: \n\n{content}"}
-            ],
-            temperature=0.7
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"❌ สรุปข่าวล้มเหลว: {e}")
-        return content[:300] + "..."  # fallback
+def summarize_text(text):
+    """สรุปข้อความด้วย Hugging Face Inference API"""
+    API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
+    payload = {
+        "inputs": text,
+        "parameters": {"max_length": 150, "min_length": 40, "do_sample": False}
+    }
+    response = requests.post(API_URL, headers=headers, json=payload)
+    if response.status_code == 200:
+        try:
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                return result[0].get("summary_text", "")
+            else:
+                print("❌ Response JSON structure unexpected:", result)
+                return ""
+        except Exception as e:
+            print("❌ Error parsing summary response:", e)
+            return ""
+    else:
+        print(f"❌ Hugging Face API error {response.status_code}: {response.text}")
+        return ""
