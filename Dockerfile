@@ -3,7 +3,7 @@ FROM python:3.10-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     fonts-thai-tlwg \
-    ttf-dejavu \
+    fonts-dejavu-core \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
