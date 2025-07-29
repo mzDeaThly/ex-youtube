@@ -9,21 +9,31 @@ openai.api_key = OPENROUTER_API_KEY
 openai.api_base = "https://openrouter.ai/api/v1"  # เปลี่ยน endpoint ให้ตรงกับผู้ให้บริการ
 
 def get_latest_news():
-    """ดึงข่าวทั่วไปจาก NewsAPI"""
-    url = f"https://newsapi.org/v2/top-headlines?country=th&apiKey={os.environ.get('NEWS_API_KEY')}"
-    response = requests.get(url)
-    print(f"📡 Fetching news | Status: {response.status_code}")
-    if response.status_code != 200:
-        return None, None
-    articles = response.json().get("articles", [])
-    if not articles:
-        print("❌ ไม่พบข่าวใหม่")
-        return None, None
-    first = articles[0]
-    title = first.get("title")
-    content = first.get("content") or first.get("description") or ""
-    print(f"✅ พบข่าว: {title}")
-    return title, content
+    """ดึงข่าวทั่วไปโดยใช้คำค้น (query)"""
+    NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+    queries = ["ข่าว", "ประเทศไทย", "เศรษฐกิจ", "การเมือง"]
+
+    for query in queries:
+        url = f"https://newsapi.org/v2/everything?q={query}&language=th&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
+        response = requests.get(url)
+        print(f"📡 Fetching query: {query} | Status: {response.status_code}")
+
+        if response.status_code != 200:
+            continue
+
+        articles = response.json().get("articles", [])
+        if not articles:
+            continue
+
+        first = articles[0]
+        title = first.get("title")
+        content = first.get("content") or first.get("description") or ""
+        print(f"✅ พบข่าว: {title}")
+        return title, content
+
+    print("❌ ไม่พบข่าวใหม่")
+    return None, None
+
 
 def summarize_text(content):
     """สรุปข่าวโดยใช้ GPT-4 ผ่าน OpenRouter"""
