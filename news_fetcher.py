@@ -39,14 +39,15 @@ def get_latest_news():
 def summarize_text(content):
     """สรุปเนื้อหาข่าวด้วย Gemini API"""
     try:
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel(model_name="models/gemini-pro")
         prompt = (
             "โปรดสรุปข่าวต่อไปนี้เป็นภาษาไทยสำหรับทำคลิปวิดีโอ 60 วินาที "
             "ให้อ่านง่ายและน่าสนใจ:\n\n"
             f"{content}"
         )
         response = model.generate_content(prompt)
-        return response.text
+        return response.text.strip()
     except Exception as e:
         print(f"❌ เกิดข้อผิดพลาดจาก Gemini API: {e}")
         return ""
+
