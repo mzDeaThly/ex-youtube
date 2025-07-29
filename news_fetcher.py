@@ -1,45 +1,31 @@
 import os
 import requests
 
-NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
-HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
+NEWS_API_KEY = os.environ.get('NEWS_API_KEY', '')
 
+def get_latest_news(queries=None):
+    """ดึงข่าวล่าสุดจาก NewsAPI โดยใช้หลายคำค้นหา fallback"""
+    if queries is None:
+        queries = ["ข่าว", "ประเทศไทย", "เศรษฐกิจ"]
 
-def get_latest_news(keywords=["ข่าว", "ประเทศไทย", "เศรษฐกิจ"]):
-    """ดึงข่าวจากหลาย keyword จนกว่าจะเจอ"""
-    for keyword in keywords:
-        print(f"📡 Fetching query: {keyword}")
-        url = f"https://newsapi.org/v2/everything?q={keyword}&language=th&pageSize=5&apiKey={NEWS_API_KEY}"
+    for query in queries:
+        url = f"https://newsapi.org/v2/everything?q={query}&language=th&sortBy=publishedAt&apiKey={NEWS_API_KEY}"
         response = requests.get(url)
-        print(f"📡 Status: {response.status_code}")
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("articles"):
-                article = data["articles"][0]
-                return article["title"], article["description"] or article["content"]
+        print(f"📡 Fetching query: {query} | Status: {response.status_code}")
+        if response.status_code != 200:
+            continue
+        data = response.json()
+        articles = data.get('articles', [])
+        if articles:
+            first = articles[0]
+            title = first.get('title')
+            content = first.get('content') or first.get('description') or ""
+            return title, content
     return None, None
 
-
 def summarize_text(text):
-    """สรุปข้อความด้วย Hugging Face Inference API"""
-    API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
-    payload = {
-        "inputs": text,
-        "parameters": {"max_length": 150, "min_length": 40, "do_sample": False}
-    }
-    response = requests.post(API_URL, headers=headers, json=payload)
-    if response.status_code == 200:
-        try:
-            result = response.json()
-            if isinstance(result, list) and len(result) > 0:
-                return result[0].get("summary_text", "")
-            else:
-                print("❌ Response JSON structure unexpected:", result)
-                return ""
-        except Exception as e:
-            print("❌ Error parsing summary response:", e)
-            return ""
-    else:
-        print(f"❌ Hugging Face API error {response.status_code}: {response.text}")
-        return ""
+    """สรุปข้อความง่าย ๆ (ฟรี) โดยตัดความยาวให้พอดีสำหรับคลิป 1-2 นาที"""
+    # ตัดข้อความไม่เกิน 400 ตัวอักษร
+    if len(text) > 400:
+        text = text[:400] + "..."
+    return text
