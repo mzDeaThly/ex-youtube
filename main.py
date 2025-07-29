@@ -1,33 +1,47 @@
-# main.py
 import os
-from dotenv import load_dotenv
+from news_fetcher import get_latest_news, summarize_text
+from video_creator import create_audio_from_text, download_pexels_video, create_final_video
+from youtube_uploader import upload_video  # คุณมีไฟล์นี้อยู่แล้ว
 
-from news_fetcher import get_latest_news
-from text_to_script import generate_script
-from tts_generator import generate_voice
-from video_creator import create_video_with_audio_subtitle
+def process_single_video():
+    print("🚀 เริ่มกระบวนการสร้างวิดีโอ...")
 
-load_dotenv()
-
-def generate_tiktok_clip():
-    print("🚀 เริ่มสร้างคลิปแนว TikTok")
-
-    title, summary = get_latest_news()
-    if not title or not summary:
+    title, content = get_latest_news()
+    if not title or not content:
         print("❌ ไม่พบข่าวใหม่")
         return
 
-    print(f"📰 หัวข้อข่าว: {title}")
-    print(f"📄 สรุปข่าว: {summary}")
+    print(f"📰 ข่าวที่ดึงมา: {title}")
+    summary = summarize_text(content)
+    print(f"📝 สรุปข่าว: {summary}")
 
-    script = generate_script(summary)
-    print(f"🗣️ สคริปต์ที่สร้าง: {script[:200]}...")
+    audio_file = create_audio_from_text(summary)
+    print(f"🔊 สร้างเสียงเสร็จ: {audio_file}")
 
-    audio_path = generate_voice(script)
-    print(f"🔊 สร้างเสียงเสร็จ: {audio_path}")
+    video_file = download_pexels_video(title.split()[0])
+    print(f"🎬 วิดีโอที่ใช้: {video_file}")
 
-    final_video = create_video_with_audio_subtitle(audio_path, script)
-    print(f"🎬 วิดีโอสร้างเสร็จ: {final_video}")
+    final_video = create_final_video(audio_file, video_file, title)
+    print(f"✅ วิดีโอไฟนอล: {final_video}")
+
+    # อัปโหลด YouTube (แก้ไข params ตามต้องการ)
+    upload_video(
+        file=final_video,
+        title=title,
+        description=summary,
+        tags=["ข่าว", "ข่าววันนี้", "AI"],
+    )
+
+    # ลบไฟล์ชั่วคราว
+    for f in [audio_file, video_file, final_video]:
+        if f and os.path.exists(f):
+            os.remove(f)
+            print(f"🗑️ ลบไฟล์: {f}")
 
 if __name__ == "__main__":
-    generate_tiktok_clip()
+    for i in range(5):
+        print(f"\n--- ▶️ คลิปที่ {i+1}/5 ---")
+        try:
+            process_single_video()
+        except Exception as e:
+            print(f"❌ เกิดข้อผิดพลาด: {e}")
