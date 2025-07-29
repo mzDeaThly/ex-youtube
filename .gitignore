@@ -1,0 +1,11 @@
+# ไฟล์ข้อมูลลับและ Token
+client_secret.json
+token.json
+
+# ไฟล์ชั่วคราวของ Python
+__pycache__/
+*.pyc
+
+# ไฟล์ Media ที่สร้างขึ้น
+*.mp4
+*.mp3
