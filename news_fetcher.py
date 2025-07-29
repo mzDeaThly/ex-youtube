@@ -9,7 +9,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 def get_latest_news():
     print(f"DEBUG: NEWS_API_KEY = {NEWS_API_KEY}")
-    url = f"https://newsapi.org/v2/top-headlines?country=th&category=business&apiKey={NEWS_API_KEY}"
+    url = f"https://newsapi.org/v2/top-headlines?country=th&apiKey={NEWS_API_KEY}"
     response = requests.get(url)
     print(f"DEBUG: Status code = {response.status_code}")
     print(f"DEBUG: Response = {response.text[:500]}")  # แสดง response แค่ 500 ตัวแรก
