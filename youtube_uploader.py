@@ -1,63 +1,77 @@
 import os
 import pickle
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+import googleapiclient.errors
 from google.auth.transport.requests import Request
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+CLIENT_SECRET_FILE = os.environ.get('CLIENT_SECRET_FILE', 'client_secret.json')
+TOKEN_PICKLE = "token.pickle"
 
-def get_authenticated_service(client_secret_path="client_secret.json"):
+def get_authenticated_service():
     creds = None
-    token_path = "token.pickle"
-    if os.path.exists(token_path):
-        with open(token_path, "rb") as token_file:
-            creds = pickle.load(token_file)
+    # โหลด token.pickle ถ้ามี
+    if os.path.exists(TOKEN_PICKLE):
+        with open(TOKEN_PICKLE, "rb") as token:
+            creds = pickle.load(token)
+    # ถ้า token ไม่ถูกต้องหรือไม่มี ให้ล็อกอินใหม่
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                client_secret_path, SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open(token_path, "wb") as token_file:
-            pickle.dump(creds, token_file)
-    return build("youtube", "v3", credentials=creds)
+            flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+                CLIENT_SECRET_FILE, SCOPES)
+            creds = flow.run_console()
+        # บันทึก token ใหม่
+        with open(TOKEN_PICKLE, "wb") as token:
+            pickle.dump(creds, token)
 
-def upload_video(file, title, description, tags=None, categoryId="27", privacyStatus="public", client_secret_path="client_secret.json"):
+    return googleapiclient.discovery.build("youtube", "v3", credentials=creds)
+
+def upload_video(file, title, description="", tags=None, categoryId="22", privacyStatus="public"):
     """
     อัปโหลดวิดีโอขึ้น YouTube
+    :param file: path ไฟล์วิดีโอ (mp4)
+    :param title: ชื่อวิดีโอ
+    :param description: คำอธิบายวิดีโอ
+    :param tags: list ของ tags (เช่น ["ข่าว", "AI"])
+    :param categoryId: รหัสหมวดหมู่ YouTube (22 = People & Blogs)
+    :param privacyStatus: "public", "private", หรือ "unlisted"
     """
-    youtube = get_authenticated_service(client_secret_path)
+    youtube = get_authenticated_service()
 
     body = {
         "snippet": {
             "title": title,
             "description": description,
             "tags": tags or [],
-            "categoryId": categoryId,
+            "categoryId": categoryId
         },
         "status": {
-            "privacyStatus": privacyStatus,
+            "privacyStatus": privacyStatus
         }
     }
-
-    from googleapiclient.http import MediaFileUpload
-    media_body = MediaFileUpload(file, chunksize=-1, resumable=True, mimetype="video/*")
 
     request = youtube.videos().insert(
         part="snippet,status",
         body=body,
-        media_body=media_body
+        media_body=file
     )
 
-    response = None
-    try:
-        while response is None:
-            status, response = request.next_chunk()
-            if status:
-                print(f"⏳ อัปโหลดไปแล้ว {int(status.progress() * 100)}%")
-        print(f"✅ อัปโหลดสำเร็จ: https://youtu.be/{response['id']}")
-        return response
-    except Exception as e:
-        print(f"❌ อัปโหลดล้มเหลว: {e}")
-        return None
+    print(f"⬆️ กำลังอัปโหลดวิดีโอ: {file} ...")
+    response = request.execute()
+    print("✅ อัปโหลดสำเร็จ!")
+    print(f"URL: https://www.youtube.com/watch?v={response['id']}")
+
+    return response['id']
+
+if __name__ == "__main__":
+    # ทดสอบอัปโหลดไฟล์ตัวอย่าง (แก้ path เป็นไฟล์ของคุณ)
+    upload_video(
+        file="final_video.mp4",
+        title="ทดสอบอัปโหลดวิดีโอ AI News",
+        description="ทดสอบอัปโหลดวิดีโอด้วย YouTube API",
+        tags=["ข่าว", "AI", "ทดสอบ"],
+        privacyStatus="private"
+    )
