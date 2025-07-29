@@ -16,6 +16,7 @@ def get_authenticated_service():
         with open(TOKEN_FILE, "rb") as token:
             credentials = pickle.load(token)
 
+    # หากยังไม่มี token หรือหมดอายุ
     if not credentials or not credentials.valid:
         if credentials and credentials.expired and credentials.refresh_token:
             credentials.refresh(google.auth.transport.requests.Request())
@@ -28,6 +29,7 @@ def get_authenticated_service():
     return build("youtube", "v3", credentials=credentials)
 
 def upload_video(file, title, description, tags=None, categoryId="25", privacyStatus="public"):
+    """อัปโหลดวิดีโอไปยัง YouTube"""
     youtube = get_authenticated_service()
 
     body = {
