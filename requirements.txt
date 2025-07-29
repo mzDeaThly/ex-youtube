@@ -1,7 +1,8 @@
+moviepy
+gtts
 requests
 google-generativeai
-gtts
-moviepy
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+python-dotenv
