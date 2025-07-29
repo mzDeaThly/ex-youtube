@@ -1,70 +1,71 @@
 import os
-import base64
-import json
 import pickle
-import datetime
-
-from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 
-# ----------------- 1. โหลด client_secret.json จาก ENV -----------------
-def prepare_client_secret():
-    secret = os.environ.get("CLIENT_SECRET_JSON")
-    if secret and not os.path.exists("client_secret.json"):
-        with open("client_secret.json", "w") as f:
-            f.write(base64.b64decode(secret).decode())
+# ขอบเขตการเข้าถึง YouTube API สำหรับอัปโหลดวิดีโอ
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
-# ----------------- 2. ฟังก์ชันอัปโหลด YouTube -----------------
-def upload_video(file, title, description, tags=[]):
-    """อัปโหลดวิดีโอขึ้น YouTube"""
-    prepare_client_secret()
-
-    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+def get_authenticated_service():
     creds = None
-
-    # โหลด token.json ถ้ามี
-    if os.path.exists("token.json"):
-        with open("token.json", "rb") as token:
-            creds = pickle.load(token)
-
-    # ถ้าไม่มี token หรือหมดอายุ
+    if os.path.exists("token.pickle"):
+        with open("token.pickle", "rb") as token_file:
+            creds = pickle.load(token_file)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("client_secret.json", SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "client_secret.json", SCOPES)
             creds = flow.run_local_server(port=0)
-        # บันทึก token ใหม่
-        with open("token.json", "wb") as token:
-            pickle.dump(creds, token)
+        with open("token.pickle", "wb") as token_file:
+            pickle.dump(creds, token_file)
+    return build("youtube", "v3", credentials=creds)
 
-    # สร้างบริการ YouTube API
-    youtube = build("youtube", "v3", credentials=creds)
+def upload_video(file, title, description, tags=None, categoryId="27", privacyStatus="public"):
+    """
+    อัปโหลดวิดีโอขึ้น YouTube
+    categoryId 27 = Education
+    privacyStatus: public, private, unlisted
+    """
+    youtube = get_authenticated_service()
 
-    # ตั้งค่าข้อมูลวิดีโอ
     body = {
         "snippet": {
             "title": title,
             "description": description,
-            "tags": tags,
-            "categoryId": "25",  # News & Politics
+            "tags": tags or [],
+            "categoryId": categoryId,
         },
         "status": {
-            "privacyStatus": "public",  # public | unlisted | private
-        },
+            "privacyStatus": privacyStatus,
+        }
     }
 
-    media = MediaFileUpload(file, chunksize=-1, resumable=True, mimetype="video/*")
-    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+    # เตรียมไฟล์วิดีโอ
+    media_body = None
+    try:
+        from googleapiclient.http import MediaFileUpload
+        media_body = MediaFileUpload(file, chunksize=-1, resumable=True, mimetype="video/*")
+    except ImportError as e:
+        print("❌ ต้องติดตั้ง google-api-python-client และ google-auth")
 
-    print("📤 กำลังอัปโหลดวิดีโอ...")
+    request = youtube.videos().insert(
+        part="snippet,status",
+        body=body,
+        media_body=media_body
+    )
+
     response = None
-    while response is None:
-        status, response = request.next_chunk()
-        if status:
-            print(f"📶 อัปโหลด: {int(status.progress() * 100)}%")
-
-    print(f"✅ อัปโหลดเสร็จสมบูรณ์: https://www.youtube.com/watch?v={response['id']}")
-    return response["id"]
+    try:
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status:
+                print(f"⏳ อัปโหลดไปแล้ว {int(status.progress() * 100)}%")
+        print(f"✅ อัปโหลดสำเร็จ: https://youtu.be/{response['id']}")
+        return response
+    except Exception as e:
+        print(f"❌ อัปโหลดล้มเหลว: {e}")
+        return None
