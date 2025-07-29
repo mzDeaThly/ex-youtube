@@ -1,58 +1,70 @@
 import os
+import base64
+import json
 import pickle
-import google.auth.transport.requests
+import datetime
+
+from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-CLIENT_SECRETS_FILE = "client_secret.json"
-TOKEN_FILE = "token.json"
+# ----------------- 1. โหลด client_secret.json จาก ENV -----------------
+def prepare_client_secret():
+    secret = os.environ.get("CLIENT_SECRET_JSON")
+    if secret and not os.path.exists("client_secret.json"):
+        with open("client_secret.json", "w") as f:
+            f.write(base64.b64decode(secret).decode())
 
-def get_authenticated_service():
-    credentials = None
+# ----------------- 2. ฟังก์ชันอัปโหลด YouTube -----------------
+def upload_video(file, title, description, tags=[]):
+    """อัปโหลดวิดีโอขึ้น YouTube"""
+    prepare_client_secret()
 
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, "rb") as token:
-            credentials = pickle.load(token)
+    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    creds = None
 
-    # หากยังไม่มี token หรือหมดอายุ
-    if not credentials or not credentials.valid:
-        if credentials and credentials.expired and credentials.refresh_token:
-            credentials.refresh(google.auth.transport.requests.Request())
+    # โหลด token.json ถ้ามี
+    if os.path.exists("token.json"):
+        with open("token.json", "rb") as token:
+            creds = pickle.load(token)
+
+    # ถ้าไม่มี token หรือหมดอายุ
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
-            credentials = flow.run_local_server(port=0)
-        with open(TOKEN_FILE, "wb") as token:
-            pickle.dump(credentials, token)
+            flow = InstalledAppFlow.from_client_secrets_file("client_secret.json", SCOPES)
+            creds = flow.run_local_server(port=0)
+        # บันทึก token ใหม่
+        with open("token.json", "wb") as token:
+            pickle.dump(creds, token)
 
-    return build("youtube", "v3", credentials=credentials)
+    # สร้างบริการ YouTube API
+    youtube = build("youtube", "v3", credentials=creds)
 
-def upload_video(file, title, description, tags=None, categoryId="25", privacyStatus="public"):
-    """อัปโหลดวิดีโอไปยัง YouTube"""
-    youtube = get_authenticated_service()
-
+    # ตั้งค่าข้อมูลวิดีโอ
     body = {
         "snippet": {
             "title": title,
             "description": description,
-            "tags": tags or [],
-            "categoryId": categoryId
+            "tags": tags,
+            "categoryId": "25",  # News & Politics
         },
         "status": {
-            "privacyStatus": privacyStatus,
-        }
+            "privacyStatus": "public",  # public | unlisted | private
+        },
     }
 
     media = MediaFileUpload(file, chunksize=-1, resumable=True, mimetype="video/*")
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
 
-    print("📤 กำลังอัปโหลดวิดีโอไปยัง YouTube...")
+    print("📤 กำลังอัปโหลดวิดีโอ...")
     response = None
     while response is None:
         status, response = request.next_chunk()
         if status:
-            print(f"⬆️ ความคืบหน้า: {int(status.progress() * 100)}%")
+            print(f"📶 อัปโหลด: {int(status.progress() * 100)}%")
 
-    print(f"✅ อัปโหลดสำเร็จ: https://www.youtube.com/watch?v={response['id']}")
+    print(f"✅ อัปโหลดเสร็จสมบูรณ์: https://www.youtube.com/watch?v={response['id']}")
     return response["id"]
