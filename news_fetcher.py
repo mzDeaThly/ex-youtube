@@ -4,23 +4,36 @@ import requests
 NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
 
+# ใช้คำค้นหลายแบบ เพื่อ fallback หากอันใดอันหนึ่งไม่เจอข่าว
+SEARCH_QUERIES = ["ข่าว", "ประเทศไทย", "เศรษฐกิจ", "การเมือง", "นโยบายรัฐ", "ผู้บริโภค"]
+
 def get_latest_news():
-    """ดึงข่าวล่าสุดจาก NewsAPI หมวด general ประเทศไทย"""
-    url = f"https://newsapi.org/v2/top-headlines?country=th&category=general&apiKey={NEWS_API_KEY}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"❌ Error fetching news: {response.status_code}")
-        return None, None
+    for query in SEARCH_QUERIES:
+        print(f"📡 Fetching query: {query}")
+        url = f"https://newsapi.org/v2/everything?q={query}&language=th&pageSize=5&apiKey={NEWS_API_KEY}"
+        response = requests.get(url)
+        print(f"📡 Status: {response.status_code}")
+        
+        if response.status_code != 200:
+            print(f"❌ Error from NewsAPI: {response.status_code} -> {response.text}")
+            continue
 
-    data = response.json()
-    articles = data.get("articles", [])
-    if not articles:
-        return None, None
+        data = response.json()
+        articles = data.get("articles", [])
+        if not articles:
+            continue
 
-    first = articles[0]
-    title = first.get("title")
-    content = first.get("content") or first.get("description") or ""
-    return title, content
+        # หาอันแรกที่มี title และ content
+        for article in articles:
+            title = article.get("title", "").strip()
+            content = article.get("content") or article.get("description") or ""
+            if title and content:
+                print(f"✅ พบข่าว: {title[:50]}")
+                return title, content
+
+    print("❌ ไม่พบข่าวในหมวดหมู่ที่กำหนด")
+    return None, None
+
 
 def summarize_text(text):
     """สรุปข้อความด้วย Hugging Face Inference API"""
