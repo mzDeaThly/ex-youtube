@@ -34,16 +34,25 @@ def download_pexels_video(query, per_page=1):
 
     # Fallback
     print(f"⚠️ ไม่พบวิดีโอจาก Pexels สำหรับ keyword: {query} → ใช้ default.mp4")
-    return "default.mp4"  # ต้องมีไฟล์นี้อยู่ในโปรเจกต์
+    return "default.mp4"  # ให้มีใน repo/deploy ด้วย
+
+def escape_text_for_drawtext(text):
+    """Escape ข้อความสำหรับใส่ drawtext"""
+    return text.replace(":", "\\:").replace("'", "\\'").replace('"', '\\"')
 
 def create_final_video(audio_path, video_path, title_text, output_filename="final_video.mp4"):
-    """ประกอบวิดีโอและเสียง พร้อมใส่ข้อความ overlay ด้วย ffmpeg CLI"""
+    """ประกอบวิดีโอและเสียง พร้อมใส่ข้อความ overlay ด้วย ffmpeg"""
+    font_path = "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf"
+    if not os.path.exists(font_path):
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+
+    safe_text = escape_text_for_drawtext(title_text)
+
     cmd = [
-        "ffmpeg",
-        "-y",
+        "ffmpeg", "-y",
         "-i", video_path,
         "-i", audio_path,
-        "-vf", f"drawtext=text='{title_text}':fontcolor=white:fontsize=30:x=(w-text_w)/2:y=50:box=1:boxcolor=black@0.5:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "-vf", f"drawtext=text='{safe_text}':fontcolor=white:fontsize=30:x=(w-text_w)/2:y=50:box=1:boxcolor=black@0.5:fontfile={font_path}",
         "-c:v", "libx264",
         "-c:a", "aac",
         "-map", "0:v:0",
@@ -51,5 +60,9 @@ def create_final_video(audio_path, video_path, title_text, output_filename="fina
         "-shortest",
         output_filename
     ]
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ ffmpeg ผสมวิดีโอล้มเหลว: {e}")
+        raise
     return output_filename
