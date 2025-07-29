@@ -1,4 +1,3 @@
-google-generativeai>=0.3.2
 requests
 gTTS
 pydub
@@ -7,3 +6,7 @@ google-auth
 google-auth-oauthlib
 google-auth-httplib2
 openai==0.28.0
+transformers
+huggingface-hub
+ffmpeg-python
+
