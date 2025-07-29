@@ -1,6 +1,6 @@
 import os
 from gtts import gTTS
-from moviepy.editor import *
+import moviepy.editor as mp
 import requests
 
 PEXELS_API_KEY = os.environ.get('PEXELS_API_KEY')
