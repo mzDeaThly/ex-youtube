@@ -1,8 +1,7 @@
-# ใช้ base image แบบ full เพื่อลดปัญหา dependency
-FROM python:3.10
+FROM python:3.10-slim
 
-# ติดตั้ง ffmpeg และ dependencies สำหรับ moviepy, pillow, และ fonts
-RUN apt-get update && apt-get install -y \
+# ติดตั้งระบบพื้นฐาน + ffmpeg + font ภาษาไทย
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsm6 \
     libxext6 \
@@ -10,26 +9,20 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libfontconfig1 \
     libfreetype6 \
-    ttf-dejavu \
     fonts-thai-tlwg \
-    && rm -rf /var/lib/apt/lists/*
+    ttf-dejavu \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
-# สร้าง user ปลอดภัย ไม่ใช้ root
-RUN useradd -m appuser
-
-# กำหนด directory สำหรับโปรเจกต์
+# ทำงานในไดเรกทอรี /app
 WORKDIR /app
 
-# คัดลอกไฟล์ dependencies และติดตั้ง Python package
+# คัดลอก requirements.txt และติดตั้ง dependencies
 COPY requirements.txt .
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# คัดลอกโค้ดทั้งหมดเข้า container
+# คัดลอกไฟล์โปรเจกต์ทั้งหมด
 COPY . .
 
-# ใช้ user ที่ไม่ใช่ root
-USER appuser
-
-# สั่งให้ container เริ่มรันด้วยคำสั่งนี้
+# รันสคริปต์หลัก (เช่น ตั้ง cronjob ให้ Render เรียก main.py)
 CMD ["python", "main.py"]
