@@ -7,3 +7,4 @@ openai==0.28.0
 transformers
 huggingface-hub
 ffmpeg-python
+python-dotenv
