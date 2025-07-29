@@ -4,34 +4,19 @@ import requests
 NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
 
-# ใช้คำค้นหลายแบบ เพื่อ fallback หากอันใดอันหนึ่งไม่เจอข่าว
-SEARCH_QUERIES = ["ข่าว", "ประเทศไทย", "เศรษฐกิจ", "การเมือง", "นโยบายรัฐ", "ผู้บริโภค"]
 
-def get_latest_news():
-    for query in SEARCH_QUERIES:
-        print(f"📡 Fetching query: {query}")
-        url = f"https://newsapi.org/v2/everything?q={query}&language=th&pageSize=5&apiKey={NEWS_API_KEY}"
+def get_latest_news(keywords=["ข่าว", "ประเทศไทย", "เศรษฐกิจ"]):
+    """ดึงข่าวจากหลาย keyword จนกว่าจะเจอ"""
+    for keyword in keywords:
+        print(f"📡 Fetching query: {keyword}")
+        url = f"https://newsapi.org/v2/everything?q={keyword}&language=th&pageSize=5&apiKey={NEWS_API_KEY}"
         response = requests.get(url)
         print(f"📡 Status: {response.status_code}")
-        
-        if response.status_code != 200:
-            print(f"❌ Error from NewsAPI: {response.status_code} -> {response.text}")
-            continue
-
-        data = response.json()
-        articles = data.get("articles", [])
-        if not articles:
-            continue
-
-        # หาอันแรกที่มี title และ content
-        for article in articles:
-            title = article.get("title", "").strip()
-            content = article.get("content") or article.get("description") or ""
-            if title and content:
-                print(f"✅ พบข่าว: {title[:50]}")
-                return title, content
-
-    print("❌ ไม่พบข่าวในหมวดหมู่ที่กำหนด")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("articles"):
+                article = data["articles"][0]
+                return article["title"], article["description"] or article["content"]
     return None, None
 
 
