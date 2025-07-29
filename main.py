@@ -5,7 +5,6 @@ from video_creator import create_audio_from_text, download_pexels_video, create_
 from youtube_uploader import upload_video
 
 def prepare_client_secret():
-    """โหลด client_secret.json จาก ENV (ถ้ายังไม่มี)"""
     secret = os.environ.get("CLIENT_SECRET_JSON")
     if secret and not os.path.exists("client_secret.json"):
         with open("client_secret.json", "w") as f:
@@ -15,32 +14,25 @@ def prepare_client_secret():
 def process_single_video():
     print("🚀 เริ่มกระบวนการสร้างวิดีโอ...")
 
-    # ดึงข่าวล่าสุด
     title, content = get_latest_news()
     if not title or not content:
         print("❌ ไม่พบข่าวใหม่")
         return
 
     print(f"📰 ข่าวที่ดึงมา: {title}")
-    
-    # สรุปข่าว
     summary = summarize_text(content)
     print(f"📝 สรุปข่าว: {summary}")
 
-    # สร้างเสียง
     audio_file = create_audio_from_text(summary)
     print(f"🔊 สร้างเสียงเสร็จ: {audio_file}")
 
-    # ดาวน์โหลดวิดีโอจาก Pexels
     keyword = title.split(" ")[0]
     video_file = download_pexels_video(keyword)
     print(f"🎬 วิดีโอที่ใช้: {video_file}")
 
-    # ประกอบวิดีโอ
     final_video_file = create_final_video(audio_file, video_file, title)
     print(f"✅ วิดีโอไฟนอล: {final_video_file}")
 
-    # อัปโหลดไป YouTube
     upload_video(
         file=final_video_file,
         title=title,
@@ -48,7 +40,6 @@ def process_single_video():
         tags=["ข่าว", "สรุปข่าว", "ข่าววันนี้"]
     )
 
-    # ลบไฟล์ชั่วคราว
     for f in [audio_file, video_file, final_video_file]:
         if os.path.exists(f):
             os.remove(f)
